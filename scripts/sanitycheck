@@ -172,6 +172,7 @@ import csv
 import glob
 import concurrent
 import concurrent.futures
+import xml.etree.ElementTree as ET
 
 if "ZEPHYR_BASE" not in os.environ:
     sys.stderr.write("$ZEPHYR_BASE environment variable undefined.\n")
@@ -185,6 +186,8 @@ import expr_parser
 VERBOSE = 0
 LAST_SANITY = os.path.join(ZEPHYR_BASE, "scripts", "sanity_chk",
                            "last_sanity.csv")
+LAST_SANITY_XUNIT = os.path.join(ZEPHYR_BASE, "scripts", "sanity_chk",
+                           "last_sanity.xml")
 RELEASE_DATA = os.path.join(ZEPHYR_BASE, "scripts", "sanity_chk",
                             "sanity_last_release.csv")
 CPU_COUNTS = multiprocessing.cpu_count()
@@ -1555,6 +1558,46 @@ class TestSuite:
                                 lower_better))
         return results
 
+    def testcase_xunit_report(self, filename):
+        if self.goals == None:
+            raise SanityRuntimeException("execute() hasn't been run!")
+
+        eleTestsuites = ET.Element('testsuites')
+        fails = 0
+        passes = 0
+        for name, goal in self.goals.items():
+            if goal.failed:
+                fails +=1
+            else:
+                passes +=1
+        eleTestsuite = ET.SubElement(eleTestsuites, 'testsuite', name='Sanitycheck', tests="%d" %(passes + fails),  failures="%s" %fails, skip="0")
+
+        for name, goal in self.goals.items():
+            i = self.instances[name]
+            rowdict = {"test" : i.test.name,
+                       "arch" : i.platform.arch.name,
+                       "platform" : i.platform.name,
+                       "extra_args" : " ".join(i.test.extra_args),
+                       "qemu" : i.platform.qemu_support,
+                       "qemu_time": "0"}
+            if goal.failed:
+                rowdict["passed"] = False
+                rowdict["status"] = goal.reason
+            else:
+                rowdict["passed"] = True
+                if goal.qemu:
+                    rowdict["qemu_time"] = str(goal.metrics["qemu_time"])
+                rowdict["ram_size"] = goal.metrics["ram_size"]
+                rowdict["rom_size"] = goal.metrics["rom_size"]
+            eleTestcase = ET.SubElement(eleTestsuite, 'testcase', name="%s:%s" %(rowdict['platform'], rowdict['test']), time=rowdict["qemu_time"])
+            if goal.failed:
+                ET.SubElement(eleTestcase, 'failure', type="failure", message="case failed")
+
+        result = ET.tostring(eleTestsuites)
+        f = open(filename, 'wb')
+        f.write(result)
+        f.close()
+
     def testcase_report(self, filename):
         if self.goals == None:
             raise SanityRuntimeException("execute() hasn't been run!")
@@ -1924,6 +1967,7 @@ def main():
     if args.testcase_report:
         ts.testcase_report(args.testcase_report)
     if not args.no_update:
+        ts.testcase_xunit_report(LAST_SANITY_XUNIT)
         ts.testcase_report(LAST_SANITY)
     if args.release:
         ts.testcase_report(RELEASE_DATA)
