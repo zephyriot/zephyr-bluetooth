@@ -1558,11 +1558,10 @@ class TestSuite:
                                 lower_better))
         return results
 
-    def testcase_xunit_report(self, filename):
+    def testcase_xunit_report(self, filename, append):
         if self.goals == None:
             raise SanityRuntimeException("execute() hasn't been run!")
 
-        eleTestsuites = ET.Element('testsuites')
         fails = 0
         passes = 0
         for name, goal in self.goals.items():
@@ -1570,7 +1569,16 @@ class TestSuite:
                 fails +=1
             else:
                 passes +=1
-        eleTestsuite = ET.SubElement(eleTestsuites, 'testsuite', name='Sanitycheck', tests="%d" %(passes + fails),  failures="%s" %fails, skip="0")
+        if os.path.exists(filename) and append:
+            tree = ET.parse(filename)
+            eleTestsuites = tree.getroot()
+            run = "Sanitycheck second pass"
+        else:
+            eleTestsuites = ET.Element('testsuites')
+            run = "Sanitycheck"
+
+        eleTestsuite = ET.SubElement(eleTestsuites, 'testsuite', name=run,
+                tests="%d" %(passes + fails),  failures="%s" %fails, skip="0")
 
         for name, goal in self.goals.items():
             i = self.instances[name]
@@ -1967,7 +1975,7 @@ def main():
     if args.testcase_report:
         ts.testcase_report(args.testcase_report)
     if not args.no_update:
-        ts.testcase_xunit_report(LAST_SANITY_XUNIT)
+        ts.testcase_xunit_report(LAST_SANITY_XUNIT, args.only_failed)
         ts.testcase_report(LAST_SANITY)
     if args.release:
         ts.testcase_report(RELEASE_DATA)
