@@ -1569,25 +1569,30 @@ class TestSuite:
                 fails +=1
             else:
                 passes +=1
+        run = "Sanitycheck"
+        eleTestsuite = None
         if os.path.exists(filename) and append:
             tree = ET.parse(filename)
             eleTestsuites = tree.getroot()
-            run = "Sanitycheck second pass"
+            eleTestsuite =  tree.findall('testsuite')[0];
         else:
             eleTestsuites = ET.Element('testsuites')
-            run = "Sanitycheck"
-
-        eleTestsuite = ET.SubElement(eleTestsuites, 'testsuite', name=run,
-                tests="%d" %(passes + fails),  failures="%s" %fails, skip="0")
+            eleTestsuite = ET.SubElement(eleTestsuites, 'testsuite', name=run,
+                    tests="%d" %(passes + fails),  failures="%s" %fails, skip="0")
 
         for name, goal in self.goals.items():
+
             i = self.instances[name]
             rowdict = {"test" : i.test.name,
                        "arch" : i.platform.arch.name,
                        "platform" : i.platform.name,
-                       "extra_args" : " ".join(i.test.extra_args),
                        "qemu" : i.platform.qemu_support,
                        "qemu_time": "0"}
+            if append:
+                for tc in eleTestsuite.findall('testcase'):
+                    if tc.get('name') == "%s:%s" %(rowdict['platform'], rowdict['test']):
+                        eleTestsuite.remove(tc)
+
             if goal.failed:
                 rowdict["passed"] = False
                 rowdict["status"] = goal.reason
@@ -1595,8 +1600,6 @@ class TestSuite:
                 rowdict["passed"] = True
                 if goal.qemu:
                     rowdict["qemu_time"] = str(goal.metrics["qemu_time"])
-                rowdict["ram_size"] = goal.metrics["ram_size"]
-                rowdict["rom_size"] = goal.metrics["rom_size"]
             eleTestcase = ET.SubElement(eleTestsuite, 'testcase', name="%s:%s" %(rowdict['platform'], rowdict['test']), time=rowdict["qemu_time"])
             if goal.failed:
                 ET.SubElement(eleTestcase, 'failure', type="failure", message="case failed")
