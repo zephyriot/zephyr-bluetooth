@@ -1558,7 +1558,7 @@ class TestSuite:
                                 lower_better))
         return results
 
-    def testcase_xunit_report(self, filename, append):
+    def testcase_xunit_report(self, filename, args):
         if self.goals == None:
             raise SanityRuntimeException("execute() hasn't been run!")
 
@@ -1571,6 +1571,8 @@ class TestSuite:
                 passes +=1
         run = "Sanitycheck"
         eleTestsuite = None
+        append = args.only_failed
+
         if os.path.exists(filename) and append:
             tree = ET.parse(filename)
             eleTestsuites = tree.getroot()
@@ -1602,7 +1604,13 @@ class TestSuite:
                     rowdict["qemu_time"] = str(goal.metrics["qemu_time"])
             eleTestcase = ET.SubElement(eleTestsuite, 'testcase', name="%s:%s" %(rowdict['platform'], rowdict['test']), time=rowdict["qemu_time"])
             if goal.failed:
-                ET.SubElement(eleTestcase, 'failure', type="failure", message="case failed")
+                failure = ET.SubElement(eleTestcase, 'failure', type="failure", message="case failed")
+                p = ("%s/%s/%s" %(args.outdir, rowdict['platform'], rowdict['test']))
+                bl = os.path.join(p, "build.log")
+                if os.path.exists(bl):
+                    with open(bl, "r") as f:
+                        log = f.read()
+                        failure.text = "![CDATA[" + (str(log)) + "]]"
 
         result = ET.tostring(eleTestsuites)
         f = open(filename, 'wb')
@@ -1978,7 +1986,7 @@ def main():
     if args.testcase_report:
         ts.testcase_report(args.testcase_report)
     if not args.no_update:
-        ts.testcase_xunit_report(LAST_SANITY_XUNIT, args.only_failed)
+        ts.testcase_xunit_report(LAST_SANITY_XUNIT, args)
         ts.testcase_report(LAST_SANITY)
     if args.release:
         ts.testcase_report(RELEASE_DATA)
