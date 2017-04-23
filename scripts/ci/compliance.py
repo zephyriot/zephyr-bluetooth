@@ -35,9 +35,11 @@ def run_checkpatch(tc):
             stderr=subprocess.STDOUT, shell=True)
 
     except subprocess.CalledProcessError as ex:
-        failure = ET.SubElement(tc, 'failure', type="failure", message="check patch issues")
-        failure.text = (str(ex.output))
-        return 1
+        m = re.search("([1-9][0-9]*) errors,", str(ex.output))
+        if m:
+            failure = ET.SubElement(tc, 'failure', type="failure", message="check patch issues")
+            failure.text = (str(ex.output))
+            return 1
 
     return 0
 
@@ -76,5 +78,8 @@ def run_tests():
     f = open(filename, 'wb')
     f.write(result)
     f.close()
+    return fails
 
-run_tests()
+fails = run_tests()
+print(fails)
+sys.exit(fails)

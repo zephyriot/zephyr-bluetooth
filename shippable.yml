@@ -30,7 +30,8 @@ build:
       - source zephyr-env.sh
       - >
           if [ "$RUN_COMPLIANCE" = "1" ]; then
-            ./scripts/ci/compliance.py;
+            errors=$(./scripts/ci/compliance.py);
+            cat compliance.xml
           fi;
       - ccache -s --max-size=2000M
       - make host-tools
