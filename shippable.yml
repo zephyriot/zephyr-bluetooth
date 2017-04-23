@@ -9,9 +9,9 @@ env:
         - ZEPHYR_GCC_VARIANT=zephyr
         - USE_CCACHE=1
     matrix:
-        - ARCH=""
-          #- ARCH="-a arm"
-          #- ARCH="-a arc -a riscv32 -a nios2"
+       - ARCH="-a x86"
+       - ARCH="-a arm"
+       - ARCH="-a arc -a riscv32 -a nios2"
 
 build:
     cache: true
@@ -28,7 +28,10 @@ build:
       - export CCACHE_DIR=${SHIPPABLE_BUILD_DIR}/ccache/.ccache
       - export COMMIT_RANGE=${SHIPPABLE_COMMIT_RANGE}
       - source zephyr-env.sh
-      - ./scripts/ci/compliance.py
+      - >
+          if [ "$ARCH" = "x86" ]; then
+            ./scripts/ci/compliance.py;
+          fi;
       - ccache -s --max-size=2000M
       - make host-tools
       - export PREBUILT_HOST_TOOLS=${ZEPHYR_BASE}/bin
